@@ -1,8 +1,7 @@
-use std::vec::Vec;
-use std::fmt;
 use std::collections::HashSet;
-use std::time::{SystemTime, UNIX_EPOCH};
-
+use std::fmt;
+use std::time::SystemTime;
+use std::vec::Vec;
 
 const MAX_DIGITS: u32 = 9;
 
@@ -70,6 +69,19 @@ impl Row {
             .collect();
         set.len() == self.values.len()
     }
+    fn get_missing(&self) -> u8 {
+        let all_numbers: HashSet<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9].into_iter().collect();
+        let set: HashSet<u8> = self
+            .values
+            .into_iter()
+            .filter_map(|cell| match cell {
+                Cell::Number(value) => Some(value),
+                _ => None,
+            })
+            .collect();
+        let dif: Vec<u8> = all_numbers.difference(&set).cloned().collect();
+        dif[0]
+    }
     fn empty() -> Row {
         Row {
             values: [Cell::Unknown; 9],
@@ -78,8 +90,21 @@ impl Row {
     fn set(&mut self, col: usize, cell: Cell) {
         self.values[col] = cell
     }
+    fn does_row_fit(&self, row: &Row) -> bool {
+        self.values.into_iter().zip(row.values.into_iter()).fold(
+            true,
+            |acc, (current, requested)| match current {
+                Cell::Unknown => acc,
+                Cell::Number(value) => match requested {
+                    Cell::Number(value2) => acc && value == value2,
+                    _ => false,
+                },
+            },
+        )
+    }
 }
 
+#[derive(Clone, Copy)]
 struct Grid {
     rows: [Row; 9],
 }
@@ -92,6 +117,21 @@ impl Grid {
     }
     fn set(&mut self, row: usize, col: usize, cell: Cell) {
         self.rows[row].set(col, cell);
+    }
+    // fn does_row_fit(&self, row: Row) -> bool {
+    //     true
+    //
+    // }
+    fn solve_with(&mut self, rows: Vec<Row>) -> bool {
+        let rows_clone = rows.clone();
+        for new_row in rows {
+            for row in self.rows {
+                if row.does_row_fit(&new_row) {
+                    rows_clone.index
+                }
+            }
+        }
+        false
     }
 }
 
@@ -165,7 +205,7 @@ fn main() {
         }
 
         let mut valid_rows: Vec<Row> = Vec::new();
-        for i in 1..MAX_FACTOR / candidate {
+        for i in 1..(MAX_FACTOR / candidate) + 1 {
             let n = candidate * i;
             if n > MAX_FACTOR {
                 break;
@@ -176,21 +216,32 @@ fn main() {
             }
         }
         // let valid_rows: Vec<Row> = factors.into_iter().map(Row::from).filter(Row::isValid).collect();
-
+        let mut groups: [Vec<Row>; 10] = Default::default();
+        for row in valid_rows {
+            let group = row.get_missing();
+            groups[group as usize].push(row)
+        }
+        for group in groups {
+            // for (group_index, group) in groups.iter().enumerate() {
+            //     if group_index==0 || group_index == 5 || group_index ==2 {
+            //         continue;
+            //     }
+            if initial_grid.clone().solve_with(group) {
+                println!("not yet: {candidate}!");
+            }
+        }
 
         numbers_checked += 1;
-        let speed = (numbers_checked as f32) / SystemTime::now().duration_since(start_time).unwrap().as_secs_f32();
-        if numbers_checked % 100000 == 0 {
-            println!("Candidate {}: {} numbers checked at {}",candidate, numbers_checked, speed);
+        let speed = (numbers_checked as f32)
+            / SystemTime::now()
+                .duration_since(start_time)
+                .unwrap()
+                .as_secs_f32();
+        if numbers_checked % 1000000 == 0 {
+            println!(
+                "Candidate {}: {} numbers checked at {}",
+                candidate, numbers_checked, speed
+            );
         }
-        // break;
-        // if factors.len() >= 9 {
-        //     println!("{}: {}", candidate, factors.len());
-        // }
-        // 1. get prime factors
-        // 2. generate all numbers that can be build with the prime factor
-        // 2.1 Discard numbers greater then 1M
-        // ----- 3 roll out numbers that do not fit in the
-        // 3.1 continue if candidate has less then 9 numbers
     }
 }
